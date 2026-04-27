@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌸 Preorderia Shop</title>
+    <link href="https://fonts.googleapis.com/css2?family=Mitr:wght@300;400;500;600&family=Itim&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <style>
+        :root {
+            --pink: #ff6b9d;
+            --pink-light: #ffb3ce;
+            --pink-pale: #fff0f6;
+            --pink-deep: #e84393;
+            --white-glass: rgba(255,255,255,0.82);
+            --shadow: 0 8px 32px rgba(255,107,157,0.18);
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Mitr',sans-serif; background:#fce8f3; min-height:100vh; overflow-x:hidden; }
+
+        /* ===== ANIMATED CANVAS BG ===== */
+        #bg-canvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; }
+        .bg-overlay-soft {
+            position:fixed; top:0; left:0; width:100%; height:100%; z-index:1;
+            background: linear-gradient(135deg,rgba(255,180,210,0.35) 0%,rgba(255,240,250,0.25) 50%,rgba(200,220,255,0.3) 100%);
+            pointer-events:none;
+        }
+
+        /* ===== FLOATING PETALS ===== */
+        .petal {
+            position:fixed; top:-30px; font-size:22px; z-index:2; animation: fall linear infinite;
+            pointer-events:none; user-select:none; opacity:0.75;
+        }
+        @keyframes fall {
+            0% { transform: translateY(-30px) rotate(0deg) scale(1); opacity:0.8; }
+            80% { opacity:0.6; }
+            100% { transform: translateY(110vh) rotate(720deg) scale(0.5); opacity:0; }
+        }
+
+        /* ===== NAV ===== */
+        nav {
+            position:sticky; top:0; z-index:200;
+            background: rgba(255,255,255,0.55);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.5);
+            padding:0 28px; height:68px;
+            display:flex; align-items:center; justify-content:space-between;
+            box-shadow:0 2px 20px rgba(255,107,157,0.1);
+        }
+        .nav-logo {
+            font-size:1.7rem; font-weight:600; color:var(--pink-deep);
+            cursor:pointer; letter-spacing:-0.5px;
+            display:flex; align-items:center; gap:8px;
+        }
+        .nav-logo span { font-size:1.9rem; animation:spin-slow 8s linear infinite; display:inline-block; }
+        @keyframes spin-slow { 0%{transform:rotate(0deg) scale(1)} 50%{transform:rotate(180deg) scale(1.1)} 100%{transform:rotate(360deg) scale(1)} }
+        .nav-right { display:flex; align-items:center; gap:16px; }
+        .user-chip {
+            background: linear-gradient(135deg,#ff9ec8,#ffd6eb);
+            color:white; padding:6px 16px; border-radius:20px;
+            font-size:0.78rem; font-weight:500; display:none;
+        }
+
+        /* ===== TABS ===== */
+        .tab-bar {
+            display:flex; justify-content:center; padding:18px 0 0;
+            position:relative; z-index:10;
+        }
+        .tab-inner {
+            background:rgba(255,255,255,0.72);
+            backdrop-filter:blur(12px);
+            border-radius:50px; padding:5px; display:flex; gap:4px;
+            box-shadow:0 4px 20px rgba(255,107,157,0.15), inset 0 1px 0 rgba(255,255,255,0.8);
+        }
+        .tab-btn {
+            padding:9px 22px; border-radius:40px; border:none; cursor:pointer;
+            font-family:'Mitr',sans-serif; font-size:0.85rem; font-weight:500;
+            color:#c06080; background:transparent; transition:all 0.25s;
+        }
+        .tab-btn.active { background:linear-gradient(135deg,#ff6b9d,#ff9ec8); color:white; box-shadow:0 4px 12px rgba(255,107,157,0.35); }
+        .tab-btn:hover:not(.active) { background:rgba(255,107,157,0.1); }
+
+        /* ===== GLASS CARD ===== */
+        .glass {
+            background:var(--white-glass);
+            backdrop-filter:blur(18px);
+            border:1px solid rgba(255,255,255,0.6);
+            border-radius:22px;
+            box-shadow:var(--shadow);
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn-pink {
+            background:linear-gradient(135deg,#ff6b9d,#ff9ec8);
+            color:white; border:none; cursor:pointer;
+            font-family:'Mitr',sans-serif; font-weight:500;
+            transition:all 0.25s; position:relative; overflow:hidden;
+        }
+        .btn-pink::after {
+            content:''; position:absolute; inset:0;
+            background:rgba(255,255,255,0); transition:0.2s;
+        }
+        .btn-pink:hover::after { background:rgba(255,255,255,0.15); }
+        .btn-pink:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(255,107,157,0.45); }
+        .btn-pink:active { transform:translateY(0); }
+
+        /* ===== PAGES ===== */
+        main { position:relative; z-index:10; max-width:1180px; margin:0 auto; padding:20px 16px 100px; }
+        .page { display:none; }
+        .page.active { display:block; }
+
+        /* ===== HOME PAGE ===== */
+        .hero-section {
+            text-align:center; padding:60px 20px 40px;
+        }
+        .hero-badge {
+            display:inline-block;
+            background:linear-gradient(135deg,#ff6b9d22,#ffd6eb44);
+            border:1px solid #ff9ec8;
+            color:var(--pink-deep); padding:6px 20px; border-radius:50px;
+            font-size:0.8rem; margin-bottom:20px;
+            animation: pulse-badge 2s ease-in-out infinite;
+        }
+        @keyframes pulse-badge { 0%,100%{box-shadow:0 0 0 0 rgba(255,107,157,0.3)} 50%{box-shadow:0 0 0 8px rgba(255,107,157,0)} }
+        .hero-title {
+            font-size:clamp(2.5rem,6vw,4.5rem); font-weight:600;
+            color:var(--pink-deep); line-height:1.1;
+            text-shadow:0 2px 20px rgba(255,107,157,0.25);
+            margin-bottom:16px;
+        }
+        .hero-sub { color:#c06080; font-size:1.05rem; margin-bottom:36px; font-weight:300; }
+        .hero-cta {
+            padding:16px 48px; border-radius:50px; font-size:1.1rem;
+            font-weight:600; letter-spacing:0.3px;
+        }
+        .hero-stats {
+            display:flex; justify-content:center; gap:40px; margin-top:48px;
+            flex-wrap:wrap;
+        }
+        .stat-card {
+            text-align:center; padding:20px 28px;
+            min-width:120px;
+        }
+        .stat-num { font-size:2rem; font-weight:600; color:var(--pink-deep); }
+        .stat-label { font-size:0.78rem; color:#c06080; margin-top:4px; }
+
+        /* ===== PRODUCT GRID ===== */
+        .section-header {
+            display:flex; justify-content:space-between; align-items:center;
+            margin-bottom:20px; padding:0 2px;
+        }
+        .section-title { font-size:1.3rem; font-weight:600; color:#b03070; }
+        .product-grid {
+            display:grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap:18px;
+        }
+        .product-card {
+            border-radius:20px; overflow:hidden;
+            transition:transform 0.3s, box-shadow 0.3s;
+            cursor:pointer;
+        }
+        .product-card:hover { transform:translateY(-6px); box-shadow:0 16px 40px rgba(255,107,157,0.25); }
+        .product-img-wrap { position:relative; height:170px; overflow:hidden; background:#ffd6eb22; }
+        .product-img-wrap img { width:100%; height:100%; object-fit:cover; transition:transform 0.4s; }
+        .product-card:hover .product-img-wrap img { transform:scale(1.07); }
+        .stock-badge {
+            position:absolute; top:10px; right:10px;
+            background:rgba(255,255,255,0.9); color:var(--pink-deep);
+            font-size:0.65rem; padding:3px 8px; border-radius:10px; font-weight:500;
+        }
+        .out-of-stock { filter:grayscale(1); opacity:0.6; }
+        .product-info { padding:12px 14px 14px; }
+        .product-name { font-size:0.85rem; font-weight:500; color:#3a1a2a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .product-price { font-size:1.05rem; font-weight:600; color:var(--pink-deep); margin:4px 0 10px; }
+        .add-btn { width:100%; padding:8px; border-radius:12px; font-size:0.8rem; }
+
+        /* ===== HISTORY PAGE ===== */
+        .order-card {
+            padding:18px 20px; margin-bottom:12px;
+            border-left:4px solid var(--pink);
+        }
+        .order-id { font-size:0.75rem; color:#999; }
+        .order-status-badge {
+            display:inline-block; padding:3px 12px; border-radius:50px;
+            font-size:0.72rem; font-weight:500;
+        }
+        .status-waiting { background:#fff3e0; color:#f57c00; }
+        .status-shipping { background:#e3f2fd; color:#1976d2; }
+        .status-done { background:#e8f5e9; color:#388e3c; }
+
+        /* ===== ADMIN PANEL ===== */
+        .admin-header {
+            display:flex; align-items:center; gap:10px;
+            margin-bottom:24px; padding-bottom:16px;
+            border-bottom:2px dashed rgba(255,107,157,0.2);
+        }
+        .admin-title { font-size:1.5rem; font-weight:600; color:var(--pink-deep); }
+        .admin-badge {
+            background:linear-gradient(135deg,#ff6b9d,#e84393);
+            color:white; font-size:0.7rem; padding:3px 10px; border-radius:10px;
+        }
+        .admin-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+        @media(max-width:900px){ .admin-grid{ grid-template-columns:1fr; } }
+        .admin-section { padding:20px; }
+        .admin-section-title {
+            font-size:0.95rem; font-weight:600; color:var(--pink-deep);
+            margin-bottom:14px; display:flex; align-items:center; gap:8px;
+        }
+        .input-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+        input, textarea, select {
+            width:100%; padding:10px 14px; border:1.5px solid #ffd6eb;
+            border-radius:12px; font-family:'Mitr',sans-serif; font-size:0.85rem;
+            background:rgba(255,255,255,0.8); outline:none; color:#3a1a2a;
+            transition:border-color 0.2s;
+        }
+        input:focus, textarea:focus { border-color:var(--pink); box-shadow:0 0 0 3px rgba(255,107,157,0.12); }
+        .admin-order-item {
+            background:rgba(255,255,255,0.7); border-radius:14px; padding:12px 14px;
+            margin-bottom:10px; border-left:3px solid var(--pink);
+        }
+        .admin-order-meta { font-size:0.75rem; color:#888; }
+        .admin-order-actions { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+        .action-btn {
+            padding:5px 12px; border-radius:8px; font-size:0.72rem;
+            border:none; cursor:pointer; font-family:'Mitr',sans-serif;
+            font-weight:500; transition:all 0.2s;
+        }
+        .action-btn:hover { transform:translateY(-1px); }
+        .btn-approve { background:#e3f2fd; color:#1565c0; }
+        .btn-track { background:#e8f5e9; color:#2e7d32; }
+        .btn-delete { background:#ffebee; color:#c62828; }
+        .btn-delivered { background:#f3e5f5; color:#6a1b9a; }
+
+        /* ===== CHAT ===== */
+        .chat-admin-wrap { display:flex; flex-direction:column; height:480px; }
+        .chat-list { flex:1; overflow-y:auto; }
+        .chat-user-btn {
+            display:block; width:100%; text-align:left;
+            padding:10px 14px; border-radius:12px; border:none;
+            background:rgba(255,255,255,0.6); cursor:pointer;
+            font-family:'Mitr',sans-serif; font-size:0.82rem; color:#3a1a2a;
+            margin-bottom:6px; transition:background 0.2s;
+            display:flex; align-items:center; gap:8px;
+        }
+        .chat-user-btn:hover { background:rgba(255,107,157,0.12); }
+        .chat-box { display:flex; flex-direction:column; height:100%; }
+        .chat-messages {
+            flex:1; overflow-y:auto; padding:8px;
+            display:flex; flex-direction:column; gap:6px;
+            background:rgba(255,255,255,0.3); border-radius:14px; margin-bottom:10px;
+        }
+        .bubble { max-width:75%; padding:8px 12px; font-size:0.78rem; line-height:1.4; }
+        .bubble-user { background:linear-gradient(135deg,#ff6b9d,#ff9ec8); color:white; border-radius:14px 14px 2px 14px; align-self:flex-end; }
+        .bubble-admin { background:white; color:#3a1a2a; border-radius:14px 14px 14px 2px; align-self:flex-start; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+        .chat-input-row { display:flex; gap:6px; }
+        .chat-send-btn { width:40px; height:40px; border-radius:12px; flex-shrink:0; }
+
+        /* ===== CUSTOMER CHAT WIDGET ===== */
+        .chat-widget { position:fixed; bottom:24px; right:24px; z-index:300; }
+        .chat-toggle-btn {
+            width:56px; height:56px; border-radius:50%; box-shadow:0 6px 20px rgba(255,107,157,0.5);
+            font-size:1.4rem; display:flex; align-items:center; justify-content:center;
+            position:relative;
+        }
+        .chat-notif {
+            position:absolute; top:-3px; right:-3px; width:14px; height:14px;
+            background:#ff3d6e; border-radius:50%; border:2px solid white;
+            animation:pulse-notif 1.5s ease-in-out infinite; display:none;
+        }
+        @keyframes pulse-notif { 0%,100%{transform:scale(1)} 50%{transform:scale(1.3)} }
+        .chat-window {
+            position:absolute; bottom:70px; right:0;
+            width:320px; height:400px;
+            border-radius:20px; overflow:hidden;
+            display:none; flex-direction:column;
+            box-shadow:0 12px 40px rgba(255,107,157,0.25);
+        }
+        .chat-window.open { display:flex; animation:chat-pop 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+        @keyframes chat-pop { from{transform:scale(0.8) translateY(20px);opacity:0} to{transform:scale(1) translateY(0);opacity:1} }
+        .chat-header {
+            background:linear-gradient(135deg,#ff6b9d,#ff9ec8);
+            padding:14px 16px; display:flex; justify-content:space-between; align-items:center;
+        }
+        .chat-header-title { color:white; font-weight:600; font-size:0.95rem; display:flex; align-items:center; gap:8px; }
+        .online-dot { width:8px; height:8px; background:#7fffb2; border-radius:50%; animation:pulse-notif 2s infinite; }
+        .chat-close { background:rgba(255,255,255,0.25); border:none; color:white; width:28px; height:28px; border-radius:50%; cursor:pointer; font-size:0.9rem; transition:background 0.2s; }
+        .chat-close:hover { background:rgba(255,255,255,0.4); }
+        .chat-body { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:6px; background:var(--pink-pale); }
+        .chat-footer { padding:10px 12px; background:white; display:flex; gap:6px; border-top:1px solid #ffd6eb; }
+
+        /* ===== CART DRAWER ===== */
+        .cart-drawer {
+            position:fixed; top:0; right:0; height:100vh; width:340px;
+            z-index:400; display:flex; flex-direction:column;
+            transform:translateX(100%); transition:transform 0.4s cubic-bezier(0.4,0,0.2,1);
+        }
+        .cart-drawer.open { transform:translateX(0); }
+        .cart-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.4);
+            z-index:390; display:none; backdrop-filter:blur(3px);
+        }
+        .cart-overlay.open { display:block; }
+        .cart-header {
+            padding:24px 22px 16px; background:linear-gradient(135deg,#ff6b9d,#ff9ec8);
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        .cart-title { font-size:1.2rem; font-weight:600; color:white; }
+        .cart-close-btn { background:rgba(255,255,255,0.25); border:none; color:white; width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; }
+        .cart-items-area { flex:1; overflow-y:auto; padding:16px; background:rgba(255,255,255,0.9); }
+        .cart-item {
+            display:flex; align-items:center; gap:12px;
+            padding:10px 12px; background:white; border-radius:14px;
+            margin-bottom:8px; box-shadow:0 2px 8px rgba(0,0,0,0.05);
+        }
+        .cart-item-img { width:50px; height:50px; border-radius:10px; object-fit:cover; }
+        .cart-item-name { font-size:0.82rem; font-weight:500; flex:1; }
+        .cart-item-price { font-size:0.85rem; color:var(--pink-deep); font-weight:600; }
+        .cart-item-remove { background:none; border:none; color:#ffb3c8; cursor:pointer; font-size:1rem; }
+        .cart-footer { padding:16px 20px; background:white; border-top:1px solid #ffd6eb; }
+        .cart-total { font-size:1.2rem; font-weight:600; color:var(--pink-deep); margin-bottom:12px; display:flex; justify-content:space-between; }
+        .cart-checkout-btn { width:100%; padding:14px; border-radius:16px; font-size:1rem; }
+        .cart-badge {
+            position:absolute; top:-8px; right:-8px; background:#ff3d6e;
+            color:white; width:20px; height:20px; border-radius:50%;
+            font-size:0.65rem; display:flex; align-items:center; justify-content:center;
+            font-weight:700; border:2px solid white;
+        }
+
+        /* ===== QR MODAL ===== */
+        .modal-backdrop {
+            position:fixed; inset:0; background:rgba(0,0,0,0.6);
+            backdrop-filter:blur(6px); z-index:500;
+            display:none; align-items:center; justify-content:center; padding:20px;
+        }
+        .modal-backdrop.open { display:flex; }
+        .modal-box {
+            background:white; border-radius:24px; padding:28px;
+            max-width:400px; width:100%; text-align:center;
+            animation:modal-in 0.35s cubic-bezier(0.34,1.56,0.64,1);
+        }
+        @keyframes modal-in { from{transform:scale(0.7);opacity:0} to{transform:scale(1);opacity:1} }
+        .modal-title { font-size:1.2rem; font-weight:600; color:var(--pink-deep); margin-bottom:16px; }
+        .qr-img { width:160px; height:160px; margin:12px auto; border-radius:12px; border:3px solid #ffd6eb; }
+        .ship-form { text-align:left; margin-bottom:16px; display:flex; flex-direction:column; gap:8px; }
+
+        /* ===== LOGIN PAGE ===== */
+        .auth-wrap { max-width:400px; margin:40px auto; }
+        .auth-card { padding:36px 32px; text-align:center; }
+        .auth-icon { font-size:3rem; margin-bottom:12px; display:block; animation:bounce-icon 2s ease-in-out infinite; }
+        @keyframes bounce-icon { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+        .auth-title { font-size:1.5rem; font-weight:600; color:var(--pink-deep); margin-bottom:6px; }
+        .auth-sub { font-size:0.82rem; color:#c06080; margin-bottom:24px; }
+        .auth-input-group { position:relative; margin-bottom:12px; }
+        .auth-input-group i { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#ffb3c8; }
+        .auth-input-group input { padding-left:40px; }
+        .auth-submit { width:100%; padding:14px; border-radius:16px; font-size:1rem; margin-top:8px; }
+        .auth-switch { font-size:0.82rem; color:#c06080; margin-top:16px; cursor:pointer; }
+        .auth-switch:hover { color:var(--pink-deep); }
+
+        /* ===== ADMIN LOGIN ===== */
+        .admin-login-overlay {
+            position:fixed; inset:0; background:rgba(0,0,0,0.7);
+            backdrop-filter:blur(10px); z-index:600;
+            display:none; align-items:center; justify-content:center;
+        }
+        .admin-login-overlay.open { display:flex; }
+        .admin-login-box { background:white; border-radius:24px; padding:36px; max-width:360px; width:90%; text-align:center; }
+
+        /* ===== SCROLLBAR ===== */
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:var(--pink-light); border-radius:10px; }
+
+        /* ===== LOADING ===== */
+        .loading-spin { display:inline-block; width:20px; height:20px; border:2px solid rgba(255,255,255,0.4); border-top-color:white; border-radius:50%; animation:spin 0.7s linear infinite; }
+        @keyframes spin { to{transform:rotate(360deg)} }
+
+        /* ===== TOAST ===== */
+        .toast {
+            position:fixed; top:80px; right:20px; z-index:999;
+            background:white; border-radius:14px; padding:12px 20px;
+            box-shadow:0 6px 24px rgba(0,0,0,0.12); font-size:0.85rem;
+            display:flex; align-items:center; gap:8px;
+            transform:translateX(120%); transition:transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+            border-left:4px solid var(--pink);
+        }
+        .toast.show { transform:translateX(0); }
+        .toast.success { border-color:#4caf50; }
+        .toast.error { border-color:#f44336; }
+
+        /* ===== EMPTY STATE ===== */
+        .empty-state { text-align:center; padding:60px 20px; color:#c06080; }
+        .empty-state i { font-size:3rem; margin-bottom:12px; opacity:0.4; display:block; }
+
+        /* ===== RESPONSIVE ===== */
+        @media(max-width:600px){
+            .product-grid { grid-template-columns: repeat(2, 1fr); gap:12px; }
+            .cart-drawer { width:100%; }
+            .admin-grid { grid-template-columns:1fr; }
+            nav { padding:0 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===== ANIMATED CANVAS BG ===== -->
+<canvas id="bg-canvas"></canvas>
+<div class="bg-overlay-soft"></div>
+
+<!-- ===== FLOATING PETALS ===== -->
+<div id="petals-container"></div>
+
+<!-- ===== TOAST ===== -->
+<div id="toast" class="toast"><i id="toast-icon" class="fas fa-check"></i><span id="toast-text"></span></div>
+
+<!-- ===== NAV ===== -->
+<nav>
+    <div class="nav-logo" onclick="showPage('home')">
+        <span>🌸</span> Preorderia
+    </div>
+    <div class="nav-right">
+        <div id="user-chip" class="user-chip"></div>
+        <button id="login-nav-btn" onclick="showPage('login')" class="btn-pink" style="padding:9px 20px;border-radius:50px;font-size:0.85rem;">
+            <i class="fas fa-user" style="margin-right:6px;"></i>เข้าสู่ระบบ
+        </button>
+        <button id="logout-btn" onclick="logout()" style="display:none;padding:9px 16px;border-radius:50px;font-size:0.82rem;background:rgba(255,107,157,0.12);border:1.5px solid #ffd6eb;color:var(--pink-deep);cursor:pointer;font-family:'Mitr',sans-serif;">
+            ออกจากระบบ
+        </button>
+        <div style="position:relative;cursor:pointer;" onclick="toggleCart()">
+            <button style="background:rgba(255,255,255,0.7);border:1.5px solid #ffd6eb;width:44px;height:44px;border-radius:50%;font-size:1.1rem;cursor:pointer;color:var(--pink-deep);display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-shopping-bag"></i>
+            </button>
+            <div id="cart-badge" class="cart-badge" style="display:none;">0</div>
+        </div>
+        <button onclick="showAdminLogin()" style="background:none;border:none;cursor:pointer;color:rgba(180,100,130,0.4);font-size:1.1rem;transition:color 0.2s;" onmouseover="this.style.color='var(--pink-deep)'" onmouseout="this.style.color='rgba(180,100,130,0.4)'">
+            <i class="fas fa-tools"></i>
+        </button>
+    </div>
+</nav>
+
+<!-- ===== TAB BAR ===== -->
+<div class="tab-bar">
+    <div class="tab-inner">
+        <button id="tab-home" class="tab-btn active" onclick="showPage('home')"><i class="fas fa-home" style="margin-right:5px;"></i>หน้าแรก</button>
+        <button id="tab-items" class="tab-btn" onclick="showPage('items')"><i class="fas fa-store" style="margin-right:5px;"></i>ร้านค้า</button>
+        <button id="tab-history" class="tab-btn" onclick="showPage('history')"><i class="fas fa-box" style="margin-right:5px;"></i>พัสดุ</button>
+    </div>
+</div>
+
+<main>
+    <!-- HOME -->
+    <div id="page-home" class="page active">
+        <div class="hero-section">
+            <div class="hero-badge">✨ พร้อมส่งทันที & Pre-order</div>
+            <h1 class="hero-title">Preorderia Shop 🎀</h1>
+            <p class="hero-sub">คอลเลกชันพรีเมียม สินค้าน่ารัก จัดส่งไวทั่วไทย</p>
+            <button class="btn-pink hero-cta" onclick="showPage('items')">เริ่มช้อปเลย <i class="fas fa-arrow-right" style="margin-left:8px;"></i></button>
+            <div class="hero-stats">
+                <div class="stat-card glass">
+                    <div class="stat-num">200+</div>
+                    <div class="stat-label">สินค้าในร้าน</div>
+                </div>
+                <div class="stat-card glass">
+                    <div class="stat-num">1K+</div>
+                    <div class="stat-label">ลูกค้าพอใจ</div>
+                </div>
+                <div class="stat-card glass">
+                    <div class="stat-num">24h</div>
+                    <div class="stat-label">จัดส่งรวดเร็ว</div>
+                </div>
+                <div class="stat-card glass">
+                    <div class="stat-num">★4.9</div>
+                    <div class="stat-label">คะแนนร้าน</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SHOP -->
+    <div id="page-items" class="page">
+        <div class="section-header">
+            <div class="section-title">🛍️ สินค้าทั้งหมด</div>
+            <span id="product-count" style="font-size:0.82rem;color:#c06080;"></span>
+        </div>
+        <div id="product-grid" class="product-grid"></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div id="page-history" class="page">
+        <div class="section-header">
+            <div class="section-title">📦 ติดตามพัสดุ</div>
+        </div>
+        <div id="user-order-list"></div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div id="page-admin-panel" class="page">
+        <div class="admin-header">
+            <div class="admin-title">Admin Panel</div>
+            <div class="admin-badge">🔐 Secure</div>
+        </div>
+        <div class="admin-grid">
+            <!-- Left: Orders + Add Product -->
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <div class="glass admin-section">
+                    <div class="admin-section-title"><i class="fas fa-clipboard-list" style="color:var(--pink);"></i> ออเดอร์ทั้งหมด</div>
+                    <div id="admin-order-list"></div>
+                </div>
+                <div class="glass admin-section">
+                    <div class="admin-section-title"><i class="fas fa-plus-circle" style="color:#66bb6a;"></i> เพิ่มสินค้าใหม่</div>
+                    <div class="input-row">
+                        <input id="admin-p-name" placeholder="ชื่อสินค้า">
+                        <input id="admin-p-price" placeholder="ราคา (฿)" type="number">
+                    </div>
+                    <input id="admin-p-img" placeholder="URL รูปภาพสินค้า" style="margin-bottom:8px;">
+                    <div class="input-row">
+                        <input id="admin-p-stock" placeholder="จำนวนสต็อก" type="number">
+                        <input id="admin-p-cat" placeholder="หมวดหมู่">
+                    </div>
+                    <button onclick="adminAddProduct()" class="btn-pink" style="width:100%;padding:11px;border-radius:12px;font-size:0.9rem;margin-top:4px;">
+                        <i class="fas fa-plus" style="margin-right:6px;"></i>เพิ่มสินค้า
+                    </button>
+                </div>
+                <!-- Manage Products -->
+                <div class="glass admin-section">
+                    <div class="admin-section-title"><i class="fas fa-boxes" style="color:#42a5f5;"></i> จัดการสินค้า</div>
+                    <div id="admin-product-list"></div>
+                </div>
+            </div>
+            <!-- Right: Chat -->
+            <div class="glass admin-section" style="display:flex;flex-direction:column;">
+                <div class="admin-section-title"><i class="fas fa-comments" style="color:#ab47bc;"></i> แชทลูกค้า
+                    <button id="chat-back-btn" onclick="adminBackToList()" style="display:none;margin-left:auto;font-size:0.72rem;background:rgba(0,0,0,0.07);border:none;padding:4px 10px;border-radius:8px;cursor:pointer;">← กลับ</button>
+                </div>
+                <div class="chat-admin-wrap">
+                    <div id="admin-chat-list" class="chat-list"></div>
+                    <div id="admin-chat-box" style="display:none;" class="chat-box">
+                        <p id="chatting-with" style="font-size:0.75rem;color:var(--pink-deep);font-weight:600;margin-bottom:8px;"></p>
+                        <div id="admin-chat-messages" class="chat-messages"></div>
+                        <div class="chat-input-row">
+                            <input id="admin-chat-input" placeholder="พิมพ์ข้อความ..." style="flex:1;" onkeydown="if(event.key==='Enter')adminSendMessage()">
+                            <button onclick="adminSendMessage()" class="btn-pink chat-send-btn">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="page-login" class="page">
+        <div class="auth-wrap">
+            <div class="glass auth-card">
+                <span class="auth-icon">🌸</span>
+                <div class="auth-title" id="auth-mode-title">เข้าสู่ระบบ</div>
+                <div class="auth-sub" id="auth-mode-sub">ยินดีต้อนรับกลับมา ✨</div>
+                <div class="auth-input-group">
+                    <i class="fas fa-user"></i>
+                    <input id="auth-user" placeholder="ชื่อผู้ใช้" autocomplete="username">
+                </div>
+                <div class="auth-input-group">
+                    <i class="fas fa-lock"></i>
+                    <input id="auth-pass" type="password" placeholder="รหัสผ่าน" autocomplete="current-password" onkeydown="if(event.key==='Enter')handleAuth(currentAuthMode)">
+                </div>
+                <button id="auth-submit-btn" onclick="handleAuth(currentAuthMode)" class="btn-pink auth-submit">
+                    <i class="fas fa-sign-in-alt" style="margin-right:6px;"></i>เข้าสู่ระบบ
+                </button>
+                <div class="auth-switch" id="auth-switch-btn" onclick="toggleAuthMode()">
+                    ยังไม่มีบัญชี? <b style="color:var(--pink-deep);">สมัครสมาชิกฟรี</b>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- ===== CUSTOMER CHAT WIDGET ===== -->
+<div class="chat-widget">
+    <div id="chat-window" class="chat-window glass">
+        <div class="chat-header">
+            <div class="chat-header-title">
+                <div class="online-dot"></div> Chat Support 💬
+            </div>
+            <button class="chat-close" onclick="toggleCustomerChat()">✕</button>
+        </div>
+        <div id="chat-messages" class="chat-body"></div>
+        <div class="chat-footer">
+            <input id="chat-input" placeholder="พิมพ์ข้อความ..." style="flex:1;" onkeydown="if(event.key==='Enter')sendMessage()">
+            <button onclick="sendMessage()" class="btn-pink" style="width:38px;height:38px;border-radius:10px;flex-shrink:0;">
+                <i class="fas fa-paper-plane" style="font-size:0.85rem;"></i>
+            </button>
+        </div>
+    </div>
+    <button class="btn-pink chat-toggle-btn" onclick="toggleCustomerChat()">
+        <i class="fas fa-comment-dots"></i>
+        <div id="chat-notif" class="chat-notif"></div>
+    </button>
+</div>
+
+<!-- ===== CART DRAWER ===== -->
+<div id="cart-overlay" class="cart-overlay" onclick="toggleCart()"></div>
+<div id="cart-drawer" class="cart-drawer glass">
+    <div class="cart-header">
+        <div class="cart-title">🧺 ตะกร้าสินค้า</div>
+        <button class="cart-close-btn" onclick="toggleCart()">✕</button>
+    </div>
+    <div id="cart-items" class="cart-items-area"></div>
+    <div class="cart-footer">
+        <div class="cart-total">
+            <span>ยอดรวม</span>
+            <span id="cart-total">฿0</span>
+        </div>
+        <button onclick="processOrder()" class="btn-pink cart-checkout-btn">
+            <i class="fas fa-credit-card" style="margin-right:8px;"></i>ชำระเงิน
+        </button>
+    </div>
+</div>
+
+<!-- ===== ORDER MODAL ===== -->
+<div id="qr-modal" class="modal-backdrop">
+    <div class="modal-box">
+        <div class="modal-title">📋 ยืนยันคำสั่งซื้อ</div>
+        <div class="ship-form">
+            <input id="ship-name" placeholder="👤 ชื่อ-นามสกุลผู้รับ">
+            <input id="ship-phone" placeholder="📞 เบอร์โทรศัพท์">
+            <textarea id="ship-address" placeholder="📍 ที่อยู่จัดส่ง" style="height:70px;resize:none;"></textarea>
+        </div>
+        <p id="qr-amount" style="font-size:1.1rem;font-weight:600;color:var(--pink-deep);margin-bottom:4px;"></p>
+        <p style="font-size:0.78rem;color:#999;margin-bottom:8px;">สแกน QR เพื่อชำระเงิน</p>
+        <img id="qr-img" class="qr-img">
+        <button onclick="confirmOrderWithQR()" class="btn-pink" style="width:100%;padding:13px;border-radius:14px;font-size:0.95rem;margin-top:12px;">
+            <i class="fas fa-check" style="margin-right:6px;"></i>แจ้งชำระเงินแล้ว
+        </button>
+        <button onclick="document.getElementById('qr-modal').classList.remove('open')" style="width:100%;padding:10px;margin-top:8px;background:none;border:none;color:#aaa;cursor:pointer;font-family:'Mitr',sans-serif;font-size:0.82rem;">ยกเลิก</button>
+    </div>
+</div>
+
+<!-- ===== ADMIN LOGIN OVERLAY ===== -->
+<div id="admin-login-overlay" class="admin-login-overlay">
+    <div class="admin-login-box">
+        <div style="font-size:2.5rem;margin-bottom:8px;">🔐</div>
+        <div style="font-size:1.2rem;font-weight:600;color:var(--pink-deep);margin-bottom:4px;">Admin Access</div>
+        <div style="font-size:0.8rem;color:#c06080;margin-bottom:20px;">กรอกรหัสผ่านแอดมิน</div>
+        <input id="admin-pass-input" type="password" placeholder="รหัสผ่าน" style="margin-bottom:12px;" onkeydown="if(event.key==='Enter')submitAdminLogin()">
+        <button onclick="submitAdminLogin()" class="btn-pink" style="width:100%;padding:12px;border-radius:12px;font-size:0.95rem;">เข้าสู่ระบบ</button>
+        <button onclick="document.getElementById('admin-login-overlay').classList.remove('open')" style="width:100%;padding:10px;margin-top:8px;background:none;border:none;color:#aaa;cursor:pointer;font-family:'Mitr',sans-serif;font-size:0.82rem;">ยกเลิก</button>
+    </div>
+</div>
+
+<script>
+// ===== FIREBASE =====
+const firebaseConfig = {
+    apiKey: "AIzaSyDf5u1YD1ZW9_jeXL9OsmgicSoOyraRTFg",
+    authDomain: "meow-shop-ce9b0.firebaseapp.com",
+    databaseURL: "https://meow-shop-ce9b0-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "meow-shop-ce9b0",
+    storageBucket: "meow-shop-ce9b0.firebasestorage.app",
+    messagingSenderId: "102243975212",
+    appId: "1:102243975212:web:8b4b647f8cb1bcd823d189"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ===== STATE =====
+let currentUser = JSON.parse(localStorage.getItem('meow_user')) || null;
+let products = JSON.parse(localStorage.getItem('meow_p')) || [
+    { id: 1, name: 'Molly Space', price: 2450, stock: 5, img: 'data:image/jpeg;base64,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5WCOLM57Y27g53rOPFx4qJWdRWvSdC92J+SVeoZ3IckjqJ7kyEajqLKoybESQANToO1GS3dnXGls9FGzEHNAjAIijP2hA3F53RjTeSFp/LucxxaufcrnlsgYBsA+rk5VsTY4CbtL7luXoyM3ynrNm/mVI1uX0G6jX10rpbzL4/yzpVHsNSNDeVa6oI3csczR+WIWY3uCeq16nFnr7m/C+n6fzyPqahijFo42MA9lob5BWwjJKcpcskKSoIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgBHiWy0EubKOSLvWygFjvzxOBY49dr9YVXFM016ucOd/r/PJQtp/R1Uv+7LZAN1na/DJcj4ykTpb4O1pe1qo7TTX+/H8FBrtja6I86lm7WxuePFlws7qmvQ6sNbpp8TX64/cXOwSoGnIS/8Atv8A0VemXsX76r/2X6o2RbO1bvVppz2RSHyapUJP0IeooXM4/qhpRbAYhIf8NI38wDP6yFdUyZnn2hpo/nX23LPhHokqSbyujjGn4nSO+FuUfzJsaH6mK3tmpeRN/wBi/wCB7B01PlL7zPbqC+wYDxETbNv1kE9adGtI5N/aN1uy2Xx/PJakwwAgAQAIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgAQAIAEACABAAgAQB//2Q==', cat: 'Pop Mart' }
+];
+let cart = [];
+let currentChatUser = null;
+let currentAuthMode = 'login';
+const ADMIN_PASS = 'zacoolxd';
+
+// ===== ANIMATED BACKGROUND =====
+(function() {
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, particles = [];
+
+    function resize() {
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Color palette
+    const colors = [
+        'rgba(255,182,210,',
+        'rgba(255,220,235,',
+        'rgba(255,150,190,',
+        'rgba(200,200,255,',
+        'rgba(255,200,240,',
+        'rgba(240,200,255,'
+    ];
+
+    class Particle {
+        constructor() { this.reset(true); }
+        reset(init) {
+            this.x = Math.random() * W;
+            this.y = init ? Math.random() * H : H + 20;
+            this.r = Math.random() * 80 + 30;
+            this.vx = (Math.random() - 0.5) * 0.3;
+            this.vy = -(Math.random() * 0.4 + 0.1);
+            this.alpha = Math.random() * 0.25 + 0.08;
+            this.color = colors[Math.floor(Math.random() * colors.length)];
+            this.pulse = Math.random() * Math.PI * 2;
+            this.pulseSpeed = Math.random() * 0.01 + 0.005;
+        }
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            this.pulse += this.pulseSpeed;
+            const a = this.alpha + Math.sin(this.pulse) * 0.04;
+            ctx.beginPath();
+            const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
+            grad.addColorStop(0, this.color + Math.min(a, 0.4) + ')');
+            grad.addColorStop(1, this.color + '0)');
+            ctx.fillStyle = grad;
+            ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+            ctx.fill();
+            if(this.y < -this.r * 2) this.reset(false);
+        }
+    }
+
+    for(let i = 0; i < 18; i++) particles.push(new Particle());
+
+    // Grid lines (subtle)
+    function drawGrid() {
+        ctx.strokeStyle = 'rgba(255,150,190,0.04)';
+        ctx.lineWidth = 1;
+        const spacing = 80;
+        for(let x = 0; x < W; x += spacing) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+        }
+        for(let y = 0; y < H; y += spacing) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        }
+    }
+
+    function loop() {
+        ctx.clearRect(0, 0, W, H);
+        // Base gradient
+        const bg = ctx.createLinearGradient(0, 0, W, H);
+        bg.addColorStop(0, '#ffe0ee');
+        bg.addColorStop(0.4, '#fff4fb');
+        bg.addColorStop(0.7, '#f0e8ff');
+        bg.addColorStop(1, '#e8f0ff');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+
+        drawGrid();
+        particles.forEach(p => p.update());
+        requestAnimationFrame(loop);
+    }
+    loop();
+})();
+
+// ===== FLOATING PETALS =====
+(function() {
+    const container = document.getElementById('petals-container');
+    const emojis = ['🌸','🌺','✿','❀','🌷','💮','🪷'];
+    function spawnPetal() {
+        const el = document.createElement('div');
+        el.className = 'petal';
+        el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        el.style.left = Math.random() * 100 + 'vw';
+        const dur = Math.random() * 8 + 7;
+        const size = Math.random() * 14 + 14;
+        el.style.fontSize = size + 'px';
+        el.style.animationDuration = dur + 's';
+        el.style.animationDelay = Math.random() * 3 + 's';
+        container.appendChild(el);
+        setTimeout(() => el.remove(), (dur + 3) * 1000);
+    }
+    for(let i = 0; i < 8; i++) spawnPetal();
+    setInterval(spawnPetal, 1800);
+})();
+
+// ===== TOAST =====
+function showToast(msg, type='success') {
+    const t = document.getElementById('toast');
+    const icon = document.getElementById('toast-icon');
+    document.getElementById('toast-text').textContent = msg;
+    t.className = 'toast ' + type;
+    icon.className = type === 'success' ? 'fas fa-check' : type === 'error' ? 'fas fa-times' : 'fas fa-info';
+    setTimeout(() => t.classList.add('show'), 10);
+    setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+// ===== PAGE NAVIGATION =====
+function showPage(p) {
+    document.querySelectorAll('.page').forEach(s => s.classList.remove('active'));
+    document.getElementById('page-' + p).classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const tab = document.getElementById('tab-' + p);
+    if(tab) tab.classList.add('active');
+    if(p === 'items') renderProducts();
+    if(p === 'history') renderUserOrders();
+    if(p === 'admin-panel') { adminSyncOrders(); loadAdminChatList(); renderAdminProducts(); }
+}
+
+// ===== ADMIN LOGIN =====
+function showAdminLogin() {
+    document.getElementById('admin-login-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('admin-pass-input').focus(), 100);
+}
+function submitAdminLogin() {
+    const pass = document.getElementById('admin-pass-input').value;
+    if(pass === ADMIN_PASS) {
+        document.getElementById('admin-login-overlay').classList.remove('open');
+        document.getElementById('admin-pass-input').value = '';
+        showPage('admin-panel');
+        showToast('ยินดีต้อนรับ Admin! 🔐');
+    } else {
+        document.getElementById('admin-pass-input').style.borderColor = '#f44336';
+        showToast('รหัสผ่านไม่ถูกต้อง', 'error');
+        setTimeout(() => document.getElementById('admin-pass-input').style.borderColor = '', 1500);
+    }
+}
+
+// ===== PRODUCTS =====
+function renderProducts() {
+    const grid = document.getElementById('product-grid');
+    document.getElementById('product-count').textContent = `${products.length} รายการ`;
+    if(!products.length) {
+        grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;"><i class="fas fa-box-open"></i><p>ยังไม่มีสินค้า</p></div>';
+        return;
+    }
+    grid.innerHTML = products.map(p => `
+        <div class="glass product-card ${p.stock <= 0 ? 'out-of-stock' : ''}">
+            <div class="product-img-wrap">
+                <img src="${p.img || 'https://via.placeholder.com/300x300/ffd6eb/ff6b9d?text=🌸'}" alt="${p.name}"
+                    onerror="this.src='https://via.placeholder.com/300x300/ffd6eb/ff6b9d?text=🌸'">
+                <div class="stock-badge">${p.stock > 0 ? `เหลือ ${p.stock}` : 'หมด'}</div>
+            </div>
+            <div class="product-info">
+                <div class="product-name">${p.name}</div>
+                ${p.cat ? `<div style="font-size:0.68rem;color:#c06080;margin:2px 0;">${p.cat}</div>` : ''}
+                <div class="product-price">฿${p.price.toLocaleString()}</div>
+                <button onclick="addToCart(${p.id})" class="btn-pink add-btn"
+                    ${p.stock <= 0 ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : ''}>
+                    <i class="fas fa-cart-plus" style="margin-right:4px;"></i>${p.stock > 0 ? 'หยิบใส่ตะกร้า' : 'สินค้าหมด'}
+                </button>
+            </div>
+        </div>`).join('');
+}
+
+function addToCart(id) {
+    const p = products.find(x => x.id === id);
+    if(!p || p.stock <= 0) return;
+    cart.push({...p});
+    p.stock--;
+    updateCartUI();
+    renderProducts();
+    showToast(`เพิ่ม "${p.name}" แล้ว 🛍️`);
+}
+
+function updateCartUI() {
+    const count = cart.length;
+    const badge = document.getElementById('cart-badge');
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'flex' : 'none';
+    const total = cart.reduce((s, i) => s + i.price, 0);
+    document.getElementById('cart-total').textContent = `฿${total.toLocaleString()}`;
+    document.getElementById('cart-items').innerHTML = cart.length
+        ? cart.map((item, idx) => `
+            <div class="cart-item">
+                <img class="cart-item-img" src="${item.img || ''}" onerror="this.style.display='none'">
+                <div class="cart-item-name">${item.name}</div>
+                <div class="cart-item-price">฿${item.price.toLocaleString()}</div>
+                <button class="cart-item-remove" onclick="removeFromCart(${idx})"><i class="fas fa-times"></i></button>
+            </div>`).join('')
+        : '<div class="empty-state"><i class="fas fa-shopping-bag"></i><p style="font-size:0.85rem;">ตะกร้าว่างเปล่า</p></div>';
+}
+
+function removeFromCart(idx) {
+    const item = cart[idx];
+    const p = products.find(x => x.id === item.id);
+    if(p) p.stock++;
+    cart.splice(idx, 1);
+    updateCartUI();
+    renderProducts();
+}
+
+function toggleCart() {
+    document.getElementById('cart-drawer').classList.toggle('open');
+    document.getElementById('cart-overlay').classList.toggle('open');
+}
+
+// ===== ORDER =====
+function processOrder() {
+    if(!currentUser) { showPage('login'); toggleCart(); return; }
+    if(!cart.length) { showToast('ตะกร้าว่างเปล่า', 'error'); return; }
+    const total = cart.reduce((s, i) => s + i.price, 0);
+    document.getElementById('qr-amount').textContent = `ยอดชำระ: ฿${total.toLocaleString()}`;
+    document.getElementById('qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=PROMPTPAY_0800000000_${total}`;
+    document.getElementById('qr-modal').classList.add('open');
+    toggleCart();
+}
+
+function confirmOrderWithQR() {
+    const name = document.getElementById('ship-name').value.trim();
+    const phone = document.getElementById('ship-phone').value.trim();
+    const addr = document.getElementById('ship-address').value.trim();
+    if(!name || !phone || !addr) { showToast('กรอกข้อมูลให้ครบนะ', 'error'); return; }
+    db.ref('orders').push({
+        user: currentUser,
+        items: cart.map(i => ({id:i.id, name:i.name, price:i.price})),
+        total: cart.reduce((s, i) => s + i.price, 0),
+        status: 'รอตรวจสอบ',
+        tracking: '',
+        time: Date.now(),
+        address: { name, phone, addr }
+    }).then(() => {
+        localStorage.setItem('meow_p', JSON.stringify(products));
+        document.getElementById('qr-modal').classList.remove('open');
+        cart = [];
+        updateCartUI();
+        showToast('สั่งซื้อสำเร็จ! 🎉 รอแอดมินยืนยัน');
+        showPage('history');
+    });
+}
+
+// ===== USER ORDERS =====
+function renderUserOrders() {
+    if(!currentUser) {
+        document.getElementById('user-order-list').innerHTML = '<div class="empty-state"><i class="fas fa-user-lock"></i><p>กรุณาเข้าสู่ระบบก่อน</p></div>';
+        return;
+    }
+    db.ref('orders').orderByChild('user').equalTo(currentUser).on('value', snap => {
+        const list = document.getElementById('user-order-list');
+        if(!snap.exists()) {
+            list.innerHTML = '<div class="empty-state"><i class="fas fa-box-open"></i><p>ยังไม่มีคำสั่งซื้อ</p></div>';
+            return;
+        }
+        let html = '';
+        snap.forEach(c => {
+            const o = c.val();
+            const statusClass = o.status === 'รอตรวจสอบ' ? 'status-waiting' : o.status === 'กำลังจัดส่ง' ? 'status-shipping' : 'status-done';
+            const items = o.items ? o.items.map(i => i.name).join(', ') : '-';
+            html = `<div class="glass order-card">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                    <div>
+                        <div class="order-id">#${c.key.slice(-8).toUpperCase()} • ${new Date(o.time).toLocaleDateString('th-TH')}</div>
+                        <div style="font-size:0.85rem;font-weight:500;color:#3a1a2a;margin:4px 0;">${items}</div>
+                        <div style="font-size:1rem;font-weight:600;color:var(--pink-deep);">฿${(o.total||0).toLocaleString()}</div>
+                    </div>
+                    <div class="order-status-badge ${statusClass}">${o.status}</div>
+                </div>
+                ${o.tracking ? `<div style="margin-top:8px;background:#e3f2fd;border-radius:10px;padding:8px 12px;font-size:0.8rem;color:#1565c0;"><i class="fas fa-truck" style="margin-right:6px;"></i>เลขพัสดุ: <b>${o.tracking}</b></div>` : ''}
+            </div>` + html;
+        });
+        list.innerHTML = html || '<div class="empty-state"><i class="fas fa-box-open"></i><p>ยังไม่มีคำสั่งซื้อ</p></div>';
+    });
+}
+
+// ===== ADMIN ORDERS =====
+function adminSyncOrders() {
+    db.ref('orders').on('value', snap => {
+        const list = document.getElementById('admin-order-list');
+        if(!snap.exists()) { list.innerHTML = '<div style="font-size:0.82rem;color:#999;text-align:center;padding:20px;">ยังไม่มีออเดอร์</div>'; return; }
+        let html = '';
+        snap.forEach(c => {
+            const o = c.val();
+            const addr = o.address ? `${o.address.name} | ${o.address.phone}` : '-';
+            const items = o.items ? o.items.map(i => i.name).join(', ') : '-';
+            html += `<div class="admin-order-item">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <b style="font-size:0.85rem;">#${c.key.slice(-6).toUpperCase()}</b>
+                    <span style="font-size:0.72rem;background:${o.status==='รอตรวจสอบ'?'#fff3e0':o.status==='กำลังจัดส่ง'?'#e3f2fd':'#e8f5e9'};color:${o.status==='รอตรวจสอบ'?'#f57c00':o.status==='กำลังจัดส่ง'?'#1565c0':'#2e7d32'};padding:2px 8px;border-radius:8px;">${o.status}</span>
+                </div>
+                <div class="admin-order-meta">${o.user} • ฿${(o.total||0).toLocaleString()} • ${addr}</div>
+                <div class="admin-order-meta" style="margin-top:2px;">${items}</div>
+                ${o.tracking ? `<div style="font-size:0.72rem;color:#1565c0;margin-top:2px;">📦 ${o.tracking}</div>` : ''}
+                <div class="admin-order-actions">
+                    <button onclick="adminUpdateStatus('${c.key}','กำลังจัดส่ง')" class="action-btn btn-approve"><i class="fas fa-check"></i> อนุมัติ</button>
+                    <button onclick="adminSetTrack('${c.key}')" class="action-btn btn-track"><i class="fas fa-truck"></i> เลขพัสดุ</button>
+                    <button onclick="adminUpdateStatus('${c.key}','จัดส่งแล้ว')" class="action-btn btn-delivered"><i class="fas fa-flag-checkered"></i> ส่งแล้ว</button>
+                    <button onclick="adminDeleteOrder('${c.key}')" class="action-btn btn-delete"><i class="fas fa-trash"></i> ลบ</button>
+                </div>
+            </div>`;
+        });
+        list.innerHTML = html;
+    });
+}
+
+function adminUpdateStatus(id, status) {
+    db.ref('orders/'+id).update({status});
+    showToast(`อัพเดตสถานะ: ${status}`);
+}
+function adminSetTrack(id) {
+    const t = prompt('กรอกเลขพัสดุ:');
+    if(t) { db.ref('orders/'+id).update({tracking:t, status:'กำลังจัดส่ง'}); showToast('บันทึกเลขพัสดุแล้ว 📦'); }
+}
+function adminDeleteOrder(id) {
+    if(confirm('ลบออเดอร์นี้?')) { db.ref('orders/'+id).remove(); showToast('ลบออเดอร์แล้ว'); }
+}
+
+// ===== ADMIN PRODUCTS =====
+function adminAddProduct() {
+    const n = document.getElementById('admin-p-name').value.trim();
+    const p = parseInt(document.getElementById('admin-p-price').value);
+    const img = document.getElementById('admin-p-img').value.trim();
+    const s = parseInt(document.getElementById('admin-p-stock').value) || 0;
+    const cat = document.getElementById('admin-p-cat').value.trim();
+    if(!n || !p) { showToast('กรอกชื่อและราคาด้วย', 'error'); return; }
+    products.unshift({id: Date.now(), name:n, price:p, img, stock:s, cat});
+    localStorage.setItem('meow_p', JSON.stringify(products));
+    document.getElementById('admin-p-name').value = '';
+    document.getElementById('admin-p-price').value = '';
+    document.getElementById('admin-p-img').value = '';
+    document.getElementById('admin-p-stock').value = '';
+    document.getElementById('admin-p-cat').value = '';
+    renderAdminProducts();
+    showToast(`เพิ่ม "${n}" แล้ว ✅`);
+}
+
+function renderAdminProducts() {
+    const list = document.getElementById('admin-product-list');
+    if(!products.length) { list.innerHTML = '<div style="font-size:0.8rem;color:#999;text-align:center;padding:10px;">ยังไม่มีสินค้า</div>'; return; }
+    list.innerHTML = products.map(p => `
+        <div style="display:flex;align-items:center;gap:8px;padding:8px;background:rgba(255,255,255,0.6);border-radius:12px;margin-bottom:6px;">
+            <img src="${p.img||''}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;background:#ffd6eb;" onerror="this.style.display='none'">
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:0.8rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
+                <div style="font-size:0.72rem;color:var(--pink-deep);">฿${p.price.toLocaleString()} • สต็อก: ${p.stock}</div>
+            </div>
+            <button onclick="adminDeleteProduct(${p.id})" style="background:none;border:none;color:#f44336;cursor:pointer;font-size:0.9rem;"><i class="fas fa-trash"></i></button>
+        </div>`).join('');
+}
+
+function adminDeleteProduct(id) {
+    if(confirm('ลบสินค้านี้?')) {
+        products = products.filter(p => p.id !== id);
+        localStorage.setItem('meow_p', JSON.stringify(products));
+        renderAdminProducts();
+        showToast('ลบสินค้าแล้ว');
+    }
+}
+
+// ===== CHAT: CUSTOMER =====
+function toggleCustomerChat() {
+    if(!currentUser) { showPage('login'); return; }
+    const win = document.getElementById('chat-window');
+    win.classList.toggle('open');
+    if(win.classList.contains('open')) {
+        loadMessages();
+        document.getElementById('chat-notif').style.display = 'none';
+    }
+}
+function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const msg = input.value.trim();
+    if(!msg || !currentUser) return;
+    db.ref(`chats/${currentUser}`).push({sender:currentUser, text:msg, time:Date.now()});
+    input.value = '';
+}
+function loadMessages() {
+    db.ref(`chats/${currentUser}`).on('value', snap => {
+        const box = document.getElementById('chat-messages');
+        box.innerHTML = '';
+        if(!snap.exists()) {
+            box.innerHTML = '<div style="text-align:center;font-size:0.8rem;color:#c06080;padding:20px;">สวัสดี! มีอะไรให้ช่วยไหม? 🌸</div>';
+            return;
+        }
+        snap.forEach(c => {
+            const m = c.val();
+            const isMe = m.sender === currentUser;
+            box.innerHTML += `<div class="bubble ${isMe?'bubble-user':'bubble-admin'}">${m.text}</div>`;
+        });
+        box.scrollTop = box.scrollHeight;
+    });
+}
+
+// ===== CHAT: ADMIN =====
+function loadAdminChatList() {
+    db.ref('chats').on('value', snap => {
+        const list = document.getElementById('admin-chat-list');
+        if(!currentChatUser) {
+            list.innerHTML = '';
+            if(!snap.exists()) { list.innerHTML = '<div style="font-size:0.8rem;color:#999;text-align:center;padding:20px;">ไม่มีแชท</div>'; return; }
+            snap.forEach(uc => {
+                list.innerHTML += `<button onclick="adminSelectUser('${uc.key}')" class="chat-user-btn">
+                    <i class="fas fa-user-circle" style="color:var(--pink);font-size:1.2rem;"></i>
+                    <span>${uc.key}</span>
+                    <i class="fas fa-chevron-right" style="margin-left:auto;color:#ddd;font-size:0.75rem;"></i>
+                </button>`;
+            });
+        }
+    });
+}
+function adminSelectUser(user) {
+    currentChatUser = user;
+    document.getElementById('admin-chat-list').style.display = 'none';
+    document.getElementById('admin-chat-box').style.display = 'flex';
+    document.getElementById('chat-back-btn').style.display = 'block';
+    document.getElementById('chatting-with').textContent = `💬 คุยกับ: ${user}`;
+    db.ref(`chats/${user}`).on('value', snap => {
+        const box = document.getElementById('admin-chat-messages');
+        box.innerHTML = '';
+        snap.forEach(c => {
+            const m = c.val();
+            const isAdmin = m.sender === 'Admin';
+            box.innerHTML += `<div class="bubble ${isAdmin?'bubble-user':'bubble-admin'}">${m.text}</div>`;
+        });
+        box.scrollTop = box.scrollHeight;
+    });
+}
+function adminBackToList() {
+    currentChatUser = null;
+    document.getElementById('admin-chat-list').style.display = 'block';
+    document.getElementById('admin-chat-box').style.display = 'none';
+    document.getElementById('chat-back-btn').style.display = 'none';
+}
+function adminSendMessage() {
+    const input = document.getElementById('admin-chat-input');
+    const msg = input.value.trim();
+    if(!msg || !currentChatUser) return;
+    db.ref(`chats/${currentChatUser}`).push({sender:'Admin', text:msg, time:Date.now()});
+    input.value = '';
+}
+
+// ===== AUTH =====
+function toggleAuthMode() {
+    currentAuthMode = currentAuthMode === 'login' ? 'register' : 'login';
+    const isReg = currentAuthMode === 'register';
+    document.getElementById('auth-mode-title').textContent = isReg ? 'สมัครสมาชิก' : 'เข้าสู่ระบบ';
+    document.getElementById('auth-mode-sub').textContent = isReg ? 'สร้างบัญชีใหม่ฟรี ✨' : 'ยินดีต้อนรับกลับมา ✨';
+    document.getElementById('auth-submit-btn').innerHTML = isReg ? '<i class="fas fa-user-plus" style="margin-right:6px;"></i>สมัครสมาชิก' : '<i class="fas fa-sign-in-alt" style="margin-right:6px;"></i>เข้าสู่ระบบ';
+    document.getElementById('auth-switch-btn').innerHTML = isReg ? 'มีบัญชีแล้ว? <b style="color:var(--pink-deep);">เข้าสู่ระบบ</b>' : 'ยังไม่มีบัญชี? <b style="color:var(--pink-deep);">สมัครสมาชิกฟรี</b>';
+}
+
+function handleAuth(type) {
+    const u = document.getElementById('auth-user').value.trim();
+    const p = document.getElementById('auth-pass').value.trim();
+    if(!u || !p) { showToast('กรอกชื่อและรหัสผ่านด้วย', 'error'); return; }
+    const btn = document.getElementById('auth-submit-btn');
+    btn.innerHTML = '<div class="loading-spin"></div>';
+    btn.disabled = true;
+    if(type === 'register') {
+        db.ref('users/'+u).once('value', snap => {
+            if(snap.exists()) {
+                showToast('ชื่อผู้ใช้นี้ถูกใช้แล้ว', 'error');
+                btn.innerHTML = '<i class="fas fa-user-plus" style="margin-right:6px;"></i>สมัครสมาชิก';
+                btn.disabled = false;
+            } else {
+                db.ref('users/'+u).set({password:p, created:Date.now()}, () => {
+                    showToast('สมัครสำเร็จ! ยินดีต้อนรับ 🎉');
+                    currentUser = u;
+                    localStorage.setItem('meow_user', JSON.stringify(u));
+                    updateNavUI();
+                    showPage('home');
+                });
+            }
+        });
+    } else {
+        db.ref('users/'+u).once('value', snap => {
+            if(snap.val() && snap.val().password === p) {
+                currentUser = u;
+                localStorage.setItem('meow_user', JSON.stringify(u));
+                showToast(`สวัสดีคุณ ${u}! 🌸`);
+                updateNavUI();
+                showPage('home');
+            } else {
+                showToast('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง', 'error');
+                btn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right:6px;"></i>เข้าสู่ระบบ';
+                btn.disabled = false;
+            }
+        });
+    }
+}
+
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('meow_user');
+    cart = [];
+    updateCartUI();
+    updateNavUI();
+    showToast('ออกจากระบบแล้ว');
+    showPage('home');
+}
+
+function updateNavUI() {
+    const chip = document.getElementById('user-chip');
+    const loginBtn = document.getElementById('login-nav-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+    if(currentUser) {
+        chip.textContent = `✨ ${currentUser}`;
+        chip.style.display = 'block';
+        loginBtn.style.display = 'none';
+        logoutBtn.style.display = 'block';
+    } else {
+        chip.style.display = 'none';
+        loginBtn.style.display = 'block';
+        logoutBtn.style.display = 'none';
+    }
+}
+
+// ===== INIT =====
+updateNavUI();
+renderProducts();
+</script>
+</body>
+</html>
